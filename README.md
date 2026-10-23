@@ -55,7 +55,7 @@ Raw/counts RNA-seq data were processed into gene-level expression matrices, QC'e
 
 ### Full Analysis
 
-**[View the complete knitted RNA-seq analysis →]([(https://olahassan000.github.io/HDAC7-GBM-Transcriptomics--R/)])**
+**[View the complete knitted RNA-seq analysis →](https://olahassan000.github.io/HDAC7-GBM-Transcriptomics--R/)**
 
 The full R Markdown workflow includes DESeq2 differential
 expression analysis, visualization, pathway analysis, and biological
