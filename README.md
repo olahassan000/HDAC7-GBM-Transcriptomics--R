@@ -81,11 +81,8 @@ expression analysis, visualization, pathway analysis, and biological
 interpretation.
 
 
-### Confidentiality
+## Study context and disclosure
 
-This work is part of the  published study (https://www.jbc.org/article/S0021-9258(25)02584-0/fulltext), the data used here are publicly available.
+This repository accompanies the [published HDAC7 study in the Journal of Biological Chemistry](https://www.jbc.org/article/S0021-9258(25)02584-0/fulltext). Interpret this portfolio analysis alongside the paper's methods, data-access information, and experimental findings.
 
-
-### Conflict of interest
-
-There is a patent application (PCT/US2022/077910) for HDAC7-specific inhibitors. Homer Therapeutics, Inc, is working to develop cancer therapeutics, specifically targeting HDAC7. 
+A patent application, **PCT/US2022/077910**, concerns HDAC7-specific inhibitors. Homer Therapeutics, Inc. is developing cancer therapeutics targeting HDAC7.
