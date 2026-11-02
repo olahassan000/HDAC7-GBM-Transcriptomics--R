@@ -1,0 +1,1311 @@
+---
+title: "HDAC7 Knockdown Transcriptomic Analysis in Glioblastoma Stem Cells"
+date modified: 10-8-2026
+author: "Ola Hassan, PhD"
+output:
+  html_document:
+    self_contained: true
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+## Study rationale and experimental design:
+**This analysis investigates how HDAC7 knockdown alters transcriptional programs in three patient-derived glioblastoma stem cell models: GB2, GB11, and GB24. The central question is whether HDAC7 inhibition produces a conserved transcriptional response across these diverse genotype models that vary with patient-specific cellular context.**
+
+**The analysis evaluates HDAC7 realted programs regarding proliferation, chromatin regulation, and stem-like identity. These programs are treated as hypotheses to test rather than assumed consequences of HDAC7 knockdown.**
+
+**Three gentotypically different gliobstoma stem cells, 2 relica each  were used in this experiment**
+
+```{r setup, include=FALSE}
+#Forlder to save all exported figures
+dir.create("figures", showWarnings = FALSE, recursive = TRUE)
+
+knitr::opts_chunk$set(
+  echo = TRUE,
+  fig.path = "figures/HDAC7-",
+  dev = c("png", "pdf"),
+  dpi = 300,
+  fig.width = 8,
+  fig.height = 6,
+  fig.keep = "high"
+)
+```
+
+---
+
+# Workflow:
+
+### 1. Import data:  data are normalized counts passed QC
+### 2. Sample metadata and experimental design
+### 3. Differential expression analysis
+### 4. QC: PCA,  Sample similarity and hierarchical Clustering
+### 5. Gene differential expression visualization
+### 6. Pathway Analysis
+### 7. Expression of selected genes of interest
+### 8. Transcription factor enrichment analysis
+### 9. Stemness enrichment and phenotype analysis
+### 10. Stemness gene signature analysis
+
+
+---
+
+## 1. Import gene expression counts matrices, QC aand validatin for the HDC7 siRNA knockdown experiment:  
+```{r gene counts box plots}
+
+#First GSC
+
+GB2_counts <- read.csv("RNAseq GB2 two replicates")
+head(GB2_counts)
+row.names(GB2_counts) = GB2_counts$X # Assign genes to row names
+GB2_counts = GB2_counts[, 2:5]
+head(GB2_counts)
+
+GB2_counts["HDAC7",] # validate HDAC7 knockdown in siHHAC7 vs CT
+boxplot(GB2_counts) #Quality assesment of the counts
+
+
+
+
+#Second GSC
+GB11_counts <- read.csv("RNAseq GB11 two replicates")
+head(GB11_counts)
+row.names(GB11_counts) = GB11_counts$X
+GB11_counts = GB11_counts[, 2:5]
+head(GB11_counts)
+
+GB11_counts["HDAC7",]  #Validation of the HDAC7 knocking down
+boxplot(GB11_counts)
+
+library(dplyr)
+
+library(plyr)
+
+GB24_counts <- read.csv("RNAseq GB24 two replicates")
+head(GB24_counts)
+row.names(GB24_counts) = GB24_counts$X
+GB24_counts = GB24_counts[, 2:5]
+head(GB24_counts)
+
+GB24_counts["HDAC7",] #Validation of the HDAC7 knocking down
+
+boxplot(GB24_counts)
+```
+
+### Intepretation: 
+**- QC passed for Library counts for the 3 GCSs**
+
+**- HDAC7 Knockdown primary validation **
+
+---
+
+## 2. Design the metadata for each GSC and assign the experimental design
+
+```{r }
+
+#GB2
+exp.des_GB2 <- factor(c("Ctrl", "Ctrl", "Kd", "Kd"))
+names(exp.des_GB2) <- colnames(GB2_counts)
+type = rep('GSC')
+
+metadata_GB2 = data.frame(colnames(GB2_counts), type, exp.des_GB2,  row.names=NULL)
+#write.csv(metadata_GB2, file = 'metadata_GB2.csv')
+
+
+
+#GB11 
+exp.des_GB11 <- factor(c("Ctrl", "Ctrl", "Kd","Kd"))
+names(exp.des_GB11) <- colnames(GB11_counts)
+type = rep('GSC')
+
+metadata_GB11= data.frame(colnames(GB11_counts), type, exp.des_GB11,  row.names=NULL)
+#write.csv(metadata_GB11, file = 'metadata_GB11.csv')
+
+# GB24
+
+exp.des_GB24 <- factor(c("Ctrl", "Ctrl","Kd","Kd"))
+names(exp.des_GB24) <- colnames(GB24_counts)
+type = rep('GSC')
+
+metadata_GB24= data.frame(colnames(GB24_counts), type, exp.des_GB24,  row.names=NULL)
+#write.csv(metadata_GB24, file = 'metadata_GB24.csv')
+
+
+```
+
+---
+
+## 3. Differential Expression Analysis
+
+
+```{r }
+
+library(DESeq2)
+
+```
+
+
+### 3.1 DESeq2 Model
+
+```{r }
+
+# Construct DESEQDataSet Object
+
+#GB2
+DEseq_GB2 <- DESeqDataSetFromMatrix(countData=GB2_counts, 
+                              colData= metadata_GB2, 
+                              design=~exp.des_GB2)
+DEseq_GB2
+
+#GB11
+DEseq_GB11 <- DESeqDataSetFromMatrix(countData=GB11_counts, 
+                              colData= metadata_GB11, 
+                              design=~exp.des_GB11)
+DEseq_GB11
+
+
+#GB24
+DEseq_GB24 <- DESeqDataSetFromMatrix(countData=GB24_counts, 
+                              colData= metadata_GB24, 
+                              design=~exp.des_GB24)
+DEseq_GB24
+
+
+```
+
+### Now run DESEQ function
+
+```{r }
+
+dds_GB2 <- DESeq(DEseq_GB2)
+dds_GB11 <- DESeq(DEseq_GB11)
+dds_GB24 <- DESeq(DEseq_GB24)
+
+```
+
+### 3.2 Extracting differential expression results
+**The results table reports each gene’s mean normalized count, estimated log2 fold change, standard error, Wald test statistic, p-value, and adjusted p-value. Positive log2 fold changes indicate higher expression following HDAC7 knockdown, while negative values indicate lower expression.**
+
+```{r }
+##Take a look at the results table
+
+
+
+#### The first GSC "GB2"
+
+#GB2 Kd Vs Ctrl
+res_GB2 <- results(dds_GB2)
+head(res_GB2, tidy=TRUE)
+
+
+
+# Examining with more strict Padj,
+res_GB2_Sig_0.05 <- subset(res_GB2, padj < 0.05)
+
+res_GB2_Sig_0.01 <- subset(res_GB2, padj < 0.01)
+res_GB2_Sig_0.001 <- subset(res_GB2, padj < 0.001)
+res_GB2_Sig_0.0001 <- subset(res_GB2, padj < 0.0001)
+
+
+nrow(res_GB2_Sig_0.01) # no. of diff expressed genes at FDR, 0.01 = 4963
+
+
+# GB2 Doing a filtering at FDR < 0.05 for Kd Vs Ctrl
+res_GB2_Sig_0.05 <- subset(res_GB2, padj < 0.05)
+nrow(res_GB2_Sig_0.05) # no. of diff expressed genes at FDR, 0.01 = 6270
+
+
+# Save the most diff expressed genes- GB2 "FDR,0.01"
+#write.csv(res_GB2_Sig_0.01, file= "Diffexpress_GB2_Sig_0.01_KD~Ctrl.csv", row.names = T)
+
+# Save the most diff expressed genes- GB2 "FDR,0.05"
+#write.csv(res_GB2_Sig_0.05, file= "Diffexpress_GB2_Sig_0.05_KD~Ctrl.csv", row.names = T)
+
+
+# and the downregulated genes by the HDAC7 KD
+res_GB2_Sig_0.05_down <- subset(res_GB2_Sig_0.05, log2FoldChange < 0)
+nrow(res_GB2_Sig_0.05_down) # no. of diff expressed genes at FDR, 0.01 = 3150
+head(res_GB2_Sig_0.05_down)
+
+# Save the down regulated Kd/CTRL- GB2 "FDR,0.05"
+#write.csv(res_GB2_Sig_0.05_down, file= "Downregulated_GB2_Sig_0.05_KD~Ctrl.csv", row.names = T)
+
+
+
+
+
+
+#### The second GSC "GB11"
+#GSCs Kd Vs Ctrl
+res_GB11 <- results(dds_GB11)
+head(res_GB11, tidy=TRUE)
+
+
+
+# GB11 Doing a filtering at FDR < 0.05 for Kd Vs Ctrl
+res_GB11_Sig_0.05 <- subset(res_GB11, padj < 0.05)
+nrow(res_GB11_Sig_0.05)
+# no. of diff expressed genes at FDR, 0.05 = 5284
+
+# GB11 Doing a filtering at FDR < 0.01 for Kd Vs Ctrl
+res_GB11_Sig_0.01 <- subset(res_GB11, padj < 0.01)
+res_GB11_Sig_0.001 <- subset(res_GB11, padj < 0.001)
+res_GB11_Sig_0.0001 <- subset(res_GB11, padj < 0.0001)
+
+
+nrow(res_GB11_Sig_0.01) # no. of diff expressed genes at FDR, 0.01 = 3907
+
+
+
+
+
+#and with the strongest upregulation
+tail( res_GB11_Sig_0.01[ order( res_GB11_Sig_0.01$log2FoldChange ), ] )
+
+# Save the most diff expressed genes- GB11 "FDR,0.01"
+write.csv(res_GB11_Sig_0.01, file= "Diffexpress_GB11_Sig_0.01_KD~Ctrl.csv", row.names = T)
+
+# Save the most diff expressed genes- GB11 "FDR,0.05"
+write.csv(res_GB11_Sig_0.05, file= "Diffexpress_GB11_Sig_0.05_KD~Ctrl.csv", row.names = T)
+
+
+# and the downregulated genes by the HDAC7 KD
+res_GB11_Sig_0.05_down <- subset(res_GB11_Sig_0.05, log2FoldChange < 0)
+nrow(res_GB11_Sig_0.05_down) # no. of diff expressed genes at FDR, 0.01 = 1870
+head(res_GB11_Sig_0.05_down)
+
+# Save the down regulated Kd/CTRL- GB2 "FDR,0.05"
+write.csv(res_GB11_Sig_0.05_down, file= "Downregulated_GB11_Sig_0.05_KD~Ctrl.csv", row.names = T)
+
+
+
+
+
+#### The third GSC "GB24"
+#GB24 Kd Vs Ctrl
+res_GB24 <- results(dds_GB24)
+head(res_GB24, tidy=TRUE)
+nrow(res_GB24)
+
+
+# GB24 Doing a filtering at FDR < 0.05 for Kd Vs Ctrl
+res_GB24_Sig_0.05 <- subset(res_GB24, padj < 0.05)
+nrow(res_GB24_Sig_0.05)
+
+
+# GB24 Doing a filtering at FDR < 0.01 for Kd Vs Ctrl
+res_GB24_Sig_0.01 <- subset(res_GB24, padj < 0.01)
+res_GB24_Sig_0.001 <- subset(res_GB24, padj < 0.001)
+res_GB24_Sig_0.0001 <- subset(res_GB24, padj < 0.0001)
+
+nrow(res_GB24_Sig_0.01) # no. of diff expressed genes at FDR, 0.05 = 918 
+
+
+
+#and with the strongest upregulation
+tail( res_GB24_Sig_0.01[ order( res_GB24_Sig_0.01$log2FoldChange ), ] )
+
+# Save the most diff expressed genes- GB24 "FDR,0.05"
+write.csv(res_GB24_Sig_0.05, file= "Diffexpress_GB24_Sig_0.05_KD~Ctrl.csv", row.names = T)
+
+# Save the most diff expressed genes- GB24 "FDR,0.01"
+write.csv(res_GB24_Sig_0.01, file= "Diffexpress_GB24_Sig_0.01_KD~Ctrl.csv", row.names = T)
+
+
+# and the downregulated genes by the HDAC7 KD
+res_GB24_Sig_0.05_down <- subset(res_GB24_Sig_0.05, log2FoldChange < 0)
+nrow(res_GB24_Sig_0.05_down) # no. of diff expressed genes at FDR, 0.01 = 607
+head(res_GB24_Sig_0.05_down)
+
+# Save the down regulated Kd/CTRL- GB2 "FDR,0.05"
+write.csv(res_GB24_Sig_0.05_down, file= "Downregulated_GB24_Sig_0.05_KD~Ctrl.csv", row.names = T)
+
+
+
+
+```
+
+### Summary of differential gene expression
+
+```{r }
+summary(res_GB2_Sig_0.05)  
+summary(res_GB11_Sig_0.05)  
+summary(res_GB24_Sig_0.05)  
+
+
+summary(res_GB2_Sig_0.01)  
+summary(res_GB11_Sig_0.01)  
+summary(res_GB24_Sig_0.01) 
+
+summary(res_GB2_Sig_0.001)  
+summary(res_GB11_Sig_0.001)  
+summary(res_GB24_Sig_0.001) 
+
+```
+### Intpretation: 
+**Here, I explore different adjusted pvalue thresholds to assess the robustness of the transcriptional response to HDAC7 knockdown. Because an FDR < 0.05 identifies a large number of differentially expressed genes, more stringent thresholds help prioritize changes with stronger statistical support. Results are saved at each threshold, while FDR < 0.05 is retained for downstream analyses for this workflow. Biological relevance is very imprtant to be evaluated alongside consistency across GSC models**
+
+
+### Identify mutual differentially expressed genes across the 3 GSC models for FDR <0.05
+
+```{r }
+# Diff expressed Sign. genes for GB2
+sign_DESeq_GB2_0.05 <- res_GB2[res_GB2$padj<0.05,]# 6270 genes out of 11818
+nrow(sign_DESeq_GB2_0.05)
+head(sign_DESeq_GB2_0.05)
+sign_DESeq_GB2_0.05[order(sign_DESeq_GB2_0.05$padj), ] 
+GB2_all_diff_expressed =sign_DESeq_GB2_0.05[order(sign_DESeq_GB2_0.05$log2FoldChange), ] 
+
+
+# Diff expressed Sign. genes for GB11
+sign_DESeq_GB11_0.05 <- res_GB11[res_GB11$padj<0.05,]#  3656
+nrow(sign_DESeq_GB11_0.05)
+head(sign_DESeq_GB11_0.05)
+sign_DESeq_GB11_0.05[order(sign_DESeq_GB11_0.05$padj), ] 
+GB11_all_diff_expressed =sign_DESeq_GB11_0.05[order(sign_DESeq_GB11_0.05$log2FoldChange), ] 
+
+# Diff expressed Sign. genes for GB24
+sign_DESeq_GB24_0.05 <- res_GB24[res_GB24$padj<0.05,]
+nrow(sign_DESeq_GB24_0.05)# 1342 
+head(sign_DESeq_GB24_0.05)
+sign_DESeq_GB24_0.05[order(sign_DESeq_GB24_0.05$padj), ] 
+GB24_all_diff_expressed =sign_DESeq_GB24_0.05[order(sign_DESeq_GB24_0.05$log2FoldChange), ] 
+
+
+# Matches between both:
+
+GSCs_Matches =intersect(row.names(sign_DESeq_GB2_0.05) , row.names(sign_DESeq_GB11_0.05)) # 2893 genes
+GSCs_Matches_all =intersect((GSCs_Matches) , row.names(sign_DESeq_GB24_0.05)) #653 genes
+
+
+
+
+write.csv(GSCs_Matches_all, file= "Diffexpress_3 GSCs_Sig_0.05_KD~Ctrl.csv", row.names = T)
+
+
+
+```
+
+
+
+
+
+### 4. QC: PCA and sample validation
+
+```{r PCA GSCS}
+
+## PCA
+#First we need to transform the raw count data
+#vst function will perform variance stabilizing transformation
+
+
+#GB2
+vsdata_GB2 <- vst(dds_GB2, blind=FALSE)
+plotPCA(vsdata_GB2, intgroup="exp.des_GB2") # using the DESEQ2 plotPCA fxn we can
+
+
+
+#GB11
+vsdata_GB11 <- vst(dds_GB11, blind=FALSE)
+plotPCA(vsdata_GB11, intgroup="exp.des_GB11") # using the DESEQ2 plotPCA fxn we can
+
+#GB24
+vsdata_GB24 <- vst(dds_GB24, blind=FALSE)
+plotPCA(vsdata_GB24, intgroup="exp.des_GB24") # using the DESEQ2 plotPCA fxn we can
+
+
+```
+### Interpretation:
+**PCA shows clear separation between control and HDAC7-knockdown in the three GSC models supporting HDAC7 knockdown-associated shift in their global gene-expression profiles** 
+
+
+## QC: Sample similarity and hierarchical Clustering
+
+```{r Samples hierarchical Clustering}
+
+## Load packages
+library("pheatmap")
+library("RColorBrewer") #vibrant colors
+
+## Do the rlog transformation:
+
+rld_GB2 = rlogTransformation(dds_GB2)
+rld_GB11 = rlogTransformation(dds_GB11)
+rld_GB24 = rlogTransformation(dds_GB24)
+
+
+##Clustering the sample-to-sample distances
+
+#GB2
+distsRL_GB2 <- dist(t(assay(rld_GB2))) # Calculate distances using transformed (and normalized) counts
+mat_GB2 <- as.matrix(distsRL_GB2) # convert to matrix
+rownames(mat_GB2) <- colnames(mat_GB2) <- with(colData(dds_GB2), paste(exp.des_GB2)) # set rownames in the matrix
+colnames(mat_GB2) = NULL # remove column names
+par(ps = 9, cex = 0.8, cex.main = 1)
+colors <- colorRampPalette( rev(brewer.pal(9, "Reds")) )(255) # set colors
+pheatmap(mat_GB2,
+         clustering_distance_rows=distsRL_GB2,
+         clustering_distance_cols=distsRL_GB2,
+         col=colors)
+
+
+#GB11
+distsRL_GB11 <- dist(t(assay(rld_GB11))) # Calculate distances using transformed (and normalized) counts
+mat_GB11 <- as.matrix(distsRL_GB11) # convert to matrix
+rownames(mat_GB11) <- colnames(mat_GB11) <- with(colData(dds_GB11), paste(exp.des_GB11)) # set rownames in the matrix
+colnames(mat_GB11) = NULL # remove column names
+par(ps = 9, cex = 0.8, cex.main = 1)
+colors <- colorRampPalette( rev(brewer.pal(9, "Reds")) )(255) # set colors
+pheatmap(mat_GB11,
+         clustering_distance_rows=distsRL_GB11,
+         clustering_distance_cols=distsRL_GB11,
+         col=colors)
+
+
+#GB24
+distsRL_GB24 <- dist(t(assay(rld_GB24))) # Calculate distances using transformed (and normalized) counts
+mat_GB24 <- as.matrix(distsRL_GB24) # convert to matrix
+rownames(mat_GB24) <- colnames(mat_GB24) <- with(colData(dds_GB24), paste(exp.des_GB24)) # set rownames in the matrix
+colnames(mat_GB24) = NULL # remove column names
+par(ps = 9, cex = 0.8, cex.main = 1)
+colors <- colorRampPalette( rev(brewer.pal(9, "Reds")) )(255) # set colors
+pheatmap(mat_GB24,
+         clustering_distance_rows=distsRL_GB24,
+         clustering_distance_cols=distsRL_GB24,
+         col=colors)
+
+```
+
+### Interpretation: 
+
+**The sample distance heatmap shows that HDAC7-knockdown samples cluster together and separately from CT samples. Distances within each condition are smaller than those between conditions, indicating greater similarity between replicates than across experimental groups. This pattern supports a consistent transcriptional difference associated with HDAC7 knockdown and complements the separation observed in PCA.**
+---
+
+## 4. Gene differential expression visualization
+
+### 4.1 Volcano Plot 
+
+```{r volcano-plots, fig.width=8, fig.height=6, fig.retina=2, out.width="100%", fig.align="center"}
+library(EnhancedVolcano)
+library(ggplot2)
+
+make_volcano <- function(res, model, selected_genes = character(0)) {
+
+  plot_data <- as.data.frame(res)
+
+  plot_data <- plot_data[
+    is.finite(plot_data$log2FoldChange) &
+      !is.na(plot_data$padj),
+  ]
+
+  plot_data$padj <- pmax(
+    plot_data$padj,
+    .Machine$double.xmin
+  )
+
+  EnhancedVolcano(
+    plot_data,
+    lab = rownames(plot_data),
+    x = "log2FoldChange",
+    y = "padj",
+
+    title = paste0(model, ": HDAC7 knockdown versus control"),
+    subtitle = NULL,
+    caption = "Adjusted P < 0.05 and |log2 fold change| > 1",
+
+    xlab = bquote(Log[2] ~ "fold change (KD / control)"),
+    ylab = bquote(-Log[10] ~ "adjusted P"),
+
+    pCutoff = 0.05,
+    FCcutoff = 1,
+
+    selectLab = selected_genes,
+    drawConnectors = length(selected_genes) > 0,
+    widthConnectors = 0.4,
+
+    pointSize = 1.3,
+    colAlpha = 0.65,
+    labSize = 3,
+
+    col = c("grey75", "#009E73", "#0072B2", "#D55E00"),
+
+    legendLabels = c(
+      "Neither threshold",
+      "|log2FC| > 1 only",
+      "Adjusted P < 0.05 only",
+      "Both thresholds"
+    ),
+    legendPosition = "bottom",
+    legendLabSize = 9,
+    legendIconSize = 2.5,
+
+    titleLabSize = 15,
+    captionLabSize = 8,
+
+    cutoffLineType = "dashed",
+    cutoffLineCol = "grey50",
+    cutoffLineWidth = 0.4,
+
+    gridlines.major = FALSE,
+    gridlines.minor = FALSE
+  )
+}
+
+format_volcano <- function(p) {
+  p +
+    theme(
+      plot.title = element_text(
+        size = 15, face = "bold",
+        margin = margin(b = 8)
+      ),
+      axis.title.x = element_text(
+        size = 12, margin = margin(t = 8)
+      ),
+      axis.title.y = element_text(
+        size = 12, margin = margin(r = 8)
+      ),
+      axis.text = element_text(size = 10, color = "black"),
+
+      legend.position = "bottom",
+      legend.text = element_text(size = 9),
+      legend.key.size = grid::unit(0.4, "cm"),
+      legend.margin = margin(0, 0, 0, 0),
+      legend.box.spacing = grid::unit(0.15, "cm"),
+
+      plot.caption = element_text(
+        size = 8, hjust = 0,
+        color = "grey40",
+        margin = margin(t = 5)
+      ),
+      plot.margin = margin(10, 10, 10, 10)
+    ) +
+  coord_cartesian(
+    xlim = c(-3, 2),
+    ylim = c(0, 40)
+  ) +
+    guides(
+      colour = guide_legend(
+        nrow = 2,
+        byrow = TRUE,
+        override.aes = list(size = 2.5, alpha = 1)
+      )
+    )
+}
+
+# Full, unfiltered DESeq2 results
+p_GB2  <- format_volcano(make_volcano(res_GB2, "GB2"))
+p_GB11 <- format_volcano(make_volcano(res_GB11, "GB11"))
+p_GB24 <- format_volcano(make_volcano(res_GB24, "GB24"))
+
+print(p_GB2)
+print(p_GB11)
+print(p_GB24)
+```
+
+### Interpretation:
+**The volcano plots suggest that the transcriptional response to HDAC7 inhibition differs across patient-derived GSC models, which is expected for such a heterogeneous type of tumor. GB2 shows prominent changes in both directions, whereas GB11 displays a stronger pattern of increased expression. In GB24, many statistically significant changes fall below the threshold: log2 fold change > 1, indicating smaller expression shifts. These differences suggest that the magnitude and direction of the response differes with the genotype of cellular context. Pathway enrichment and comparison of shared genes can help identify which biological programs are consistently affected across models.**
+
+
+
+### 4.2 MA Plot
+
+
+```{r MA plots}
+
+
+## MA plot describes the differential expression by plotting log transformed expression values with mean average values, while volcano plot scales significance value at y axis and fold change at x axis
+
+par(mfrow=c(1,3))
+
+
+#Red points have adjusted p value < 0.01. We see that in general genes that are highly expressed, or have a high fold change, are DE.
+plotMA(res_GB2_Sig_0.01, ylim=c(-7,7), main="MA plot_GB2")
+plotMA(GB11_all_diff_expressed, ylim=c(-7,7), main="MA plot_GB11")
+plotMA(GB24_all_diff_expressed, ylim=c(-7,7), main="MA plot_GB24")
+
+```
+
+### Interpretation: 
+**plots show a wider range of expression changes in GB2. although we used the tight cutoff here, intermediate changes in GB11, and generally smaller changes in GB24 among the displayed genes.**
+
+
+### 4.3 Heatmap Clustering
+Heatmaps display the top 30 differentially expressed genes ranked by adjusted P-value within each GSC model. Regularized log-transformed expression values are centered across samples for each gene.
+
+
+```{r gene-heatmaps, fig.width=7, fig.height=8, fig.retina=2, out.width="85%", fig.align="center"}
+library(pheatmap)
+
+plot_gene_heatmap <- function(res, rld, condition_column, model,
+                              n_genes = 30) {
+
+  # Select significant genes and rank by adjusted P-value
+  results_df <- as.data.frame(res)
+
+  results_df <- results_df[
+    !is.na(results_df$padj) &
+      results_df$padj < 0.05 &
+      is.finite(results_df$log2FoldChange),
+    ,
+    drop = FALSE
+  ]
+
+  results_df <- results_df[
+    order(results_df$padj, -abs(results_df$log2FoldChange)),
+    ,
+    drop = FALSE
+  ]
+
+  # Match genes by name
+  available_genes <- rownames(results_df)[
+    rownames(results_df) %in% rownames(assay(rld))
+  ]
+
+  selected_genes <- head(available_genes, n_genes)
+
+  if (length(selected_genes) < 2) {
+    stop(paste(model, "has fewer than two significant genes to plot."))
+  }
+
+  expression_mat <- assay(rld)[selected_genes, , drop = FALSE]
+
+  # Center each gene across samples
+  expression_mat <- sweep(
+    expression_mat, 1, rowMeans(expression_mat), "-"
+  )
+
+  # Annotate conditions
+  condition <- as.character(colData(rld)[[condition_column]])
+
+  annotation <- data.frame(
+    Condition = factor(condition),
+    row.names = colnames(expression_mat)
+  )
+
+  # Label replicates within each condition
+  replicate_number <- ave(
+    seq_along(condition),
+    condition,
+    FUN = seq_along
+  )
+
+  sample_labels <- paste0(condition, "_", replicate_number)
+
+  # Symmetric color scale
+  color_limit <- max(abs(expression_mat))
+
+  if (!is.finite(color_limit) || color_limit == 0) {
+    stop(paste(model, "has invalid or constant expression values."))
+  }
+
+  pheatmap(
+    expression_mat,
+    annotation_col = annotation,
+
+    color = colorRampPalette(
+      c("#2166AC", "white", "#B2182B")
+    )(100),
+    breaks = seq(-color_limit, color_limit, length.out = 101),
+
+    cluster_rows = TRUE,
+    cluster_cols = TRUE,
+    clustering_distance_rows = "euclidean",
+    clustering_distance_cols = "euclidean",
+    clustering_method = "complete",
+
+    labels_col = sample_labels,
+    angle_col = "45",
+
+    fontsize = 10,
+    fontsize_row = 8,
+    fontsize_col = 10,
+
+    cellwidth = 45,
+    cellheight = 12,
+    treeheight_row = 35,
+    treeheight_col = 30,
+    border_color = NA,
+
+    main = paste0(
+      model, ": top ", length(selected_genes),
+      " DE genes\nMean-centered rlog expression"
+    )
+  )
+}
+
+plot_gene_heatmap(res_GB2, rld_GB2, "exp.des_GB2", "GB2")
+plot_gene_heatmap(res_GB11, rld_GB11, "exp.des_GB11", "GB11")
+plot_gene_heatmap(res_GB24, rld_GB24, "exp.des_GB24", "GB24")
+```
+
+### Interpretation:
+**Heatmaps of the top 30 differentially expressed genes show condition-specific clustering and consistent expression patterns between replicates in all GSCs GB2, GB11 and GB24. these patterns highlight both shared and model-dependent transcriptional responses to HDAC7 knockdown. **
+
+
+---
+
+## 5. Pathway Analysis
+
+```{r }
+
+library(clusterProfiler)
+library(enrichplot)
+library(ggplot2)
+
+# SET THE DESIRED ORGANISM HERE
+library(org.Hs.eg.db)
+
+HA = org.Hs.eg.db
+```
+
+### 5. Functional enrichment analysis by GSEA
+ We will consider two ways for the pathways enrichment
+
+### 5.1 GSEA GO enrichment pathway analysis: .
+
+**GSEA is performed separately for GB2, GB11, and GB24 to identify biological processes associated with the transcriptional response to HDAC7 knockdown. All genes with valid DESeq2 Wald statistics are ranked without prior significance filtering. GO Biological Process gene sets are tested using clusterProfiler, with Benjamini–Hochberg correction for multiple testing. Positive normalized enrichment scores (NES) indicate enrichment toward genes increased in knockdown, while negative scores indicate enrichment toward genes decreased in knockdown.**
+
+```{r GO-gsea, fig.width=9, fig.height=7, fig.retina=2, out.width="100%", fig.align="center"}
+library(clusterProfiler)
+library(enrichplot)
+library(org.Hs.eg.db)
+library(ggplot2)
+
+
+#Here GSEA uses the full gene list ranked by the DESeq2 Wald statistic, GO Biological Process terms, and BH-adjusted P < 0.05, it answwers on which biological programs shift following HDAC7 knockdown.
+
+run_go_gsea <- function(res, model) {
+
+  results_df <- as.data.frame(res)
+  results_df$gene <- rownames(results_df)
+
+  # Use all genes with a valid Wald statistic
+  results_df <- results_df[
+    is.finite(results_df$stat) &
+      !is.na(results_df$gene) &
+      nzchar(results_df$gene),
+    ,
+    drop = FALSE
+  ]
+
+  # Keep one entry per gene symbol
+  results_df <- results_df[
+    order(abs(results_df$stat), decreasing = TRUE),
+    ,
+    drop = FALSE
+  ]
+  results_df <- results_df[!duplicated(results_df$gene), ]
+
+  # Create a named, decreasingly ranked vector
+  gene_list <- setNames(results_df$stat, results_df$gene)
+  gene_list <- sort(gene_list, decreasing = TRUE)
+
+  set.seed(123)
+
+  gsea_result <- gseGO(
+    geneList = gene_list,
+    OrgDb = org.Hs.eg.db,
+    keyType = "SYMBOL",
+    ont = "ALL",
+    minGSSize = 3,
+    maxGSSize = 800,
+    pvalueCutoff = 0.01,
+    pAdjustMethod = "none",
+    by = "fgsea",
+    seed = TRUE,
+    verbose = FALSE
+  )
+
+  # Handle models without significant enrichment
+  if (nrow(as.data.frame(gsea_result)) == 0) {
+    message(model, ": no GO terms meet the enrichment cutoff.")
+    return(gsea_result)
+  }
+
+   print(
+    dotplot(
+      gsea_result,
+      showCategory = 15,
+      color = "p.adjust",
+      font.size = 12
+    ) +
+      scale_y_discrete(
+        labels = function(x) vapply(
+          x,
+          function(label) {
+            paste(strwrap(label, width = 45), collapse = "\n")
+          },
+          character(1)
+        )
+      ) +
+      labs(
+        title = paste0(model, ": GO GSEA"),
+        subtitle = "Genes ranked by DESeq2 Wald statistic",
+        caption = "Nominal P < 0.01; no multiple-testing correction"
+      ) +
+      theme(
+        plot.title = element_text(size = 19, face = "bold"),
+        plot.subtitle = element_text(size = 14),
+        axis.title = element_text(size = 15),
+        axis.text.x = element_text(size = 13),
+        axis.text.y = element_text(size = 12),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        plot.caption = element_text(size = 12, hjust = 0)
+      )
+  )
+
+  return(gsea_result)
+}
+
+# Use full DESeq2 results
+gse_GB2  <- run_go_gsea(res_GB2, "GB2")
+gse_GB11 <- run_go_gsea(res_GB11, "GB11")
+gse_GB24 <- run_go_gsea(res_GB24, "GB24")
+```
+
+### Interpretation:
+
+**GO GSEA identified shared and model-specific functional associations following HDAC7 knockdown. Pathways include RNA metabolism and transcriptional regulation in GB2, developmental processes in GB11, and heterochromatin assembly, chromosome cohesion, and stem-cell differentiation in GB24. These findings prioritize candidate programs for further investigation.**
+
+
+
+### 5.2. Enrich GO method that focuses on the significant genes. 
+Enrich GO over-representation analysis identifies biological processes that occur more frequently among significantly differentially expressed genes than expected from the tested gene background. Analysis is performed separately for GB2, GB11, and GB24 using genes with adjusted P < 0.05. Enrichment P-values are corrected using the Benjamini–Hochberg method. Increased and decreased genes are analyzed together, so enriched terms describe processes associated with expression changes without establishing their direction.
+
+
+
+```{r GO-Ora, fig.width=9, fig.height=7, fig.retina=2, out.width="100%", fig.align="center"}
+
+# Enrich go answers whether genes associated with a particular biological process more common in my significant gene list than I would expect by chance?.
+
+
+run_go_ora <- function(res, model, gene_padj_cutoff = 0.05) {
+
+  results_df <- as.data.frame(res)
+  results_df$gene <- rownames(results_df)
+
+  # Background: genes with valid adjusted P-values
+  tested_genes <- results_df[
+    !is.na(results_df$padj) &
+      !is.na(results_df$gene) &
+      nzchar(results_df$gene),
+    ,
+    drop = FALSE
+  ]
+
+  background_genes <- unique(tested_genes$gene)
+
+  # Significant genes, including both expression directions
+  significant_genes <- unique(
+    tested_genes$gene[
+      tested_genes$padj < gene_padj_cutoff
+    ]
+  )
+
+  if (length(significant_genes) == 0) {
+    message(model, ": no genes meet the selection threshold.")
+    return(NULL)
+  }
+
+  ora_result <- enrichGO(
+    gene = significant_genes,
+    universe = background_genes,
+    OrgDb = org.Hs.eg.db,
+    keyType = "SYMBOL",
+    ont = "BP",
+    pAdjustMethod = "BH",
+    pvalueCutoff = 1,
+    qvalueCutoff = 1,
+    minGSSize = 10,
+    maxGSSize = 800
+  )
+
+  # Keep the full result object; apply the enrichment cutoff for plotting
+  result_table <- as.data.frame(ora_result)
+
+  enriched_terms <- result_table[
+    !is.na(result_table$p.adjust) &
+      result_table$p.adjust < 0.05,
+    ,
+    drop = FALSE
+  ]
+
+  if (nrow(enriched_terms) == 0) {
+
+    print(
+      ggplot() +
+        annotate(
+          "text", x = 0, y = 0,
+          label = paste0(
+            model,
+            "\nNo GO Biological Process terms\n",
+            "meet BH-adjusted P < 0.05"
+          ),
+          size = 5
+        ) +
+        xlim(-1, 1) +
+        ylim(-1, 1) +
+        theme_void()
+    )
+
+    return(ora_result)
+  }
+
+  # Display the 15 terms with the lowest adjusted P-values
+  enriched_terms <- enriched_terms[
+    order(enriched_terms$p.adjust),
+    ,
+    drop = FALSE
+  ]
+
+  top_terms <- head(enriched_terms, 15)
+
+  # Convert GeneRatio from fractions to numeric values
+  top_terms$GeneRatioNumeric <- vapply(
+    strsplit(as.character(top_terms$GeneRatio), "/", fixed = TRUE),
+    function(x) as.numeric(x[1]) / as.numeric(x[2]),
+    numeric(1)
+  )
+
+  top_terms$Label <- vapply(
+    top_terms$Description,
+    function(x) paste(strwrap(x, width = 45), collapse = "\n"),
+    character(1)
+  )
+
+  # Use GO IDs to keep terms distinct
+  top_terms$ID <- factor(
+    top_terms$ID,
+    levels = top_terms$ID[order(top_terms$GeneRatioNumeric)]
+  )
+
+  term_labels <- setNames(
+    top_terms$Label,
+    as.character(top_terms$ID)
+  )
+
+  print(
+    ggplot(
+      top_terms,
+      aes(x = GeneRatioNumeric, y = ID)
+    ) +
+      geom_point(
+        aes(size = Count, color = p.adjust),
+        alpha = 0.9
+      ) +
+      scale_y_discrete(labels = term_labels) +
+      scale_color_gradient(
+        low = "#B2182B",
+        high = "#2166AC",
+        name = "BH-adjusted P"
+      ) +
+      scale_size_continuous(
+        range = c(3, 7),
+        name = "Gene count"
+      ) +
+      labs(
+        title = paste0(model, ": EnrichGO over-representation analysis"),
+        subtitle = paste0(
+          length(significant_genes),
+          " selected genes (gene-level padj < ",
+          gene_padj_cutoff, ")"
+        ),
+        x = "Gene ratio",
+        y = NULL,
+        caption = "GO Biological Process | Enrichment BH-adjusted P < 0.05"
+      ) +
+      theme_bw(base_size = 12) +
+      theme(
+        plot.title = element_text(size = 16, face = "bold"),
+        plot.subtitle = element_text(size = 11),
+        axis.title.x = element_text(size = 12),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 11, color = "black"),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 9),
+        panel.grid.minor = element_blank(),
+        plot.caption = element_text(
+          size = 9, hjust = 0, color = "grey40"
+        ),
+        plot.margin = margin(10, 15, 10, 10)
+      )
+  )
+
+  return(ora_result)
+}
+
+ego_GB2 <- run_go_ora(res_GB2, "GB2", gene_padj_cutoff = 0.001)
+ego_GB11 <- run_go_ora(res_GB11, "GB11", gene_padj_cutoff = 0.001)
+ego_GB24 <- run_go_ora(res_GB24, "GB24", gene_padj_cutoff = 0.001)
+```
+
+### Intepretation:
+**EnrichGO analysis highlights distinct biological pathways following HDAC7 knockdown. In GB11 and GB24, differentially expressed genes are enriched for cell-cycle and mitotic processes, including nuclear division and regulation of mitosis. GB11 additionally shows enrichment for microtubule and cytoskeletal organization, while GB24 emphasizes chromosome segregation and cell-cycle phase transitions. Together, these results implicate proliferation-related transcriptional programs in the response to HDAC7 depletion. In GB2, the displayed terms emphasize transcriptional regulation, developmental programs, extracellular matrix organization, and cell–cell adhesion. This suggests a broader response involving cellular identity and interactions with the extracellular environment. Enrichment of vascular-development terms reflects changes in genes annotated to these programs and does not by itself demonstrate blood-vessel formation.**
+
+
+### Another GSEA enrichemnt visualization
+Here, I used significant genes ranked by decreasing log2 fold change. Gene-level adjusted P-value cutoffs are tightened to < 0.001 for GB2 and <0.01 for GB11 and GB24. The analysis includes Biological Process, Molecular Function, and Cellular Component categories, with gene-set sizes of 3–800 genes. Enriched terms were retained at nominal P <0.01 without multiple-testing correction and visualized using enrichment maps to highlight relationships among GO terms.
+```{r GSEA GO}
+
+# reading in data from deseq2
+original_gene_list_GB2 <- res_GB2_Sig_0.001$log2FoldChange
+
+
+# name the vector
+names(original_gene_list_GB2) <- row.names(res_GB2_Sig_0.001)  
+#write.csv(original_gene_list_GB2, file= "GB2_Sig_0.001.csv", row.names = T)
+
+
+# sort the list in decreasing order (required for clusterProfiler)
+gene_list_GB2 = sort(original_gene_list_GB2, decreasing = TRUE)
+
+gse_GB2 <- gseGO(geneList=gene_list_GB2, 
+             ont ="ALL",
+             keyType = "SYMBOL", 
+             nPerm = 1000, 
+             minGSSize = 3, 
+             maxGSSize = 800, 
+             pvalueCutoff = 0.01,
+             verbose = TRUE, 
+             OrgDb = HA, 
+             pAdjustMethod = "none")
+
+require(DOSE)
+emapplot(gse_GB2, showCategory = 10)
+
+
+
+
+# reading in data from deseq2
+#GB11
+# reading in data from deseq2
+original_gene_list_GB11 <- res_GB11_Sig_0.01$log2FoldChange
+
+# name the vector
+names(original_gene_list_GB11) <- row.names(res_GB11_Sig_0.01)  
+
+# sort the list in decreasing order (required for clusterProfiler)
+gene_list_GB11 = sort(original_gene_list_GB11, decreasing = TRUE)
+
+gse_GB11 <- gseGO(geneList=gene_list_GB11, 
+             ont ="ALL",
+             keyType = "SYMBOL", 
+             nPerm = 1000, 
+             minGSSize = 3, 
+             maxGSSize = 800, 
+             pvalueCutoff = 0.01,
+             verbose = TRUE, 
+             OrgDb = HA, 
+             pAdjustMethod = "none")
+emapplot(gse_GB11, showCategory = 10, color = "p.adjust",)
+
+
+#GB24
+# reading in data from deseq2
+original_gene_list_GB24 <- res_GB24_Sig_0.01$log2FoldChange
+
+# name the vector
+names(original_gene_list_GB24) <- row.names(res_GB24_Sig_0.01)  
+
+# sort the list in decreasing order (required for clusterProfiler)
+gene_list_GB24 = sort(original_gene_list_GB24, decreasing = TRUE)
+
+gse_GB24 <- gseGO(geneList=gene_list_GB24, 
+             ont ="ALL",
+             keyType = "SYMBOL", 
+             nPerm = 1000, 
+             minGSSize = 3, 
+             maxGSSize = 800, 
+             pvalueCutoff = 0.01,
+             verbose = TRUE, 
+             OrgDb = HA, 
+             pAdjustMethod = "none")
+
+emapplot(gse_GB24, showCategory = 12)
+
+```
+
+### Interpretation:
+**Enrichment maps highlight cell cycle, cell devision, and DNA replication across the three GSC models. Extensive connectivity emphasizes similarity among GO annotations.**
+
+---
+
+## 6. Expression of selected genes of interest
+### Expression of selected stemness-associated genes accross the three GSC Models
+Normalized RNA-seq counts were examined for a selected panel of stemness-associated genes in GB2, GB11, and GB24 to assess their expression following HDAC7 knockdown.Dots represent individual samples, and black diamonds indicate group means. Each gene has its own Y-axis scale to make differences between conditions easier to visualize. Statistical significance should be assessed using the corresponding DESeq2 results.
+
+
+```{r stemness-counts, fig.width=11, fig.height=13, fig.retina=2, out.width="100%", fig.align="center"}
+
+# Use KDM6B for JMJD3
+stemness_genes <- c(
+  "JMJD6", "KMT2B", "KDM6B", "JMJD1C", "JMJD8",
+  "KMT5A", "CRABP2", "HMGA1", "TPX2", "BIRC5",
+  "ORC6", "SOX7", "SOX13", "CCNB1", "EIF3B",
+  "SETD1A", "MYC", "CDC6", "MCM6", "MCM7",
+  "MCM5", "MCM4", "MCM3", "MCM2", "PARP1",
+  "UBE2T", "UBE2S", "E4F1", "MYBL2", "DNMT1",
+  "RAF1", "CDC45", "EIF2B2", "NOTCH3", "NOTCH1",
+  "CHD4", "RANGAP1", "H2AFZ", "H2AFX", "ICMT", "ORC1"
+)
+
+plot_panel_counts <- function(dds, condition_column, model,
+                              genes = stemness_genes) {
+
+  normalized_counts <- counts(dds, normalized = TRUE)
+
+  present_genes <- genes[genes %in% rownames(normalized_counts)]
+  missing_genes <- setdiff(genes, present_genes)
+
+  if (length(missing_genes) > 0) {
+    message(
+      model, ": genes not found: ",
+      paste(missing_genes, collapse = ", ")
+    )
+  }
+
+  if (length(present_genes) == 0) {
+    stop(model, ": none of the requested genes were found.")
+  }
+
+  selected_counts <- normalized_counts[
+    present_genes, , drop = FALSE
+  ]
+
+  # Convert counts to a table with one row per gene and sample
+  plot_data <- data.frame(
+    Gene = rep(rownames(selected_counts),
+               times = ncol(selected_counts)),
+    Sample = rep(colnames(selected_counts),
+                 each = nrow(selected_counts)),
+    NormalizedCount = as.vector(selected_counts)
+  )
+
+  sample_condition <- as.character(
+    colData(dds)[[condition_column]]
+  )
+  names(sample_condition) <- colnames(dds)
+
+  plot_data$Condition <- factor(
+    sample_condition[plot_data$Sample],
+    levels = unique(sample_condition)
+  )
+
+  plot_data$Gene <- factor(
+    plot_data$Gene,
+    levels = present_genes
+  )
+
+  plot_data$Model <- model
+  plot_data$Log2Count <- log2(plot_data$NormalizedCount + 1)
+
+  p <- ggplot(
+    plot_data,
+    aes(x = Condition, y = Log2Count, color = Condition)
+  ) +
+    geom_point(
+      position = position_jitter(width = 0.12, height = 0,
+                                 seed = 123),
+      size = 2,
+      alpha = 0.85
+    ) +
+    stat_summary(
+      fun = mean,
+      geom = "point",
+      shape = 18,
+      size = 3,
+      color = "black"
+    ) +
+    facet_wrap(~ Gene, ncol = 5, scales = "free_y") +
+    scale_color_manual(
+      values = rep(
+        c("#0072B2", "#D55E00"),
+        length.out = nlevels(plot_data$Condition)
+      )
+    ) +
+    labs(
+      title = paste0(model, ": selected stemness-related genes"),
+      subtitle = "Individual samples; black diamonds indicate group means",
+      x = NULL,
+      y = "Log2(normalized count + 1)",
+      caption = "Each gene has its own Y-axis scale."
+    ) +
+    theme_bw(base_size = 11) +
+    theme(
+      plot.title = element_text(size = 16, face = "bold"),
+      plot.subtitle = element_text(size = 11),
+      strip.text = element_text(size = 10, face = "bold"),
+      strip.background = element_rect(fill = "grey95"),
+      axis.text.x = element_text(
+        size = 9, angle = 45, hjust = 1
+      ),
+      axis.text.y = element_text(size = 8),
+      axis.title.y = element_text(size = 12),
+      panel.grid.minor = element_blank(),
+      legend.position = "none",
+      plot.caption = element_text(size = 9, hjust = 0),
+      plot.margin = margin(10, 10, 10, 10)
+    )
+
+  print(p)
+  return(plot_data)
+}
+
+counts_GB2 <- plot_panel_counts(
+  dds_GB2, "exp.des_GB2", "GB2"
+)
+
+counts_GB11 <- plot_panel_counts(
+  dds_GB11, "exp.des_GB11", "GB11"
+)
+
+counts_GB24 <- plot_panel_counts(
+  dds_GB24, "exp.des_GB24", "GB24"
+)
+
+# Combined table of normalized counts
+stemness_counts <- rbind(
+  counts_GB2, counts_GB11, counts_GB24
+)
+```
+
+### Interpretation:
+**HDAC7 knockdown is associated with a coordinated decrease in expression of many genes in the selected panel across GB2, GB11, and GB24. Shared decreases include replication- and cell-cycle-associated critical genes like MCM2–7, CDC6, CDC45, ORC1, and ORC6, TPX2, BIRC5, CCNB1, and MYBL2. This pattern is consistent with reduced DNA replication and mitotic activity, supporting the cell-cycle themes identified in the GO enrichment analysis.Also, NOTCH1, NOTCH3, KMT5A, DNMT1, and CHD4 also show lower expression across the three models, suggesting that the response extends beyond proliferation to include changes in stemness-associated signaling and chromatin regulation.Together, these observations are consistent with disruption of proliferative and stemness-associated programs and chromatin regulation following HDAC7 knockdown**
+
+
+
+---
+
+
+## Additional analyses
+
+### Transcrption factor enrichment analysis:
+**We put the genes that were downregulated by the HDAC7 knockdown from the 3GSCs on the ChEA3 webtool, https://maayanlab.cloud/chea3/**
+
+### Stemness enrichment and phenotype analysis:
+**We put the genes that were downregulated by the HDAC7 knockdown from the 3 GSCs on the StemChecker webtool, http://stemchecker.sysbiolab.eu**
+
+### Stemness gene signature analysis:
+**We put the genes that were downregulated by the HDAC7 knockdown from the 3 GSCs on the GSEA software **
+
+
+---
+
+## Final takeout:
+**Across the three patient-derived GSC models, HDAC7 knockdown is associated with transcriptional changes involving cell-cycle regulation, DNA replication, and stemness-associated genes. GO enrichment highlights mitotic and chromosome-segregation processes, particularly in GB11 and GB24. Consistent with these findings, the selected-gene plots show lower expression of replication and cell-cycle genes, including MCM2–7, CDC6, CDC45, CCNB1, and BIRC5, across all three models.**
+
+**The response also varies between models. GB2 enrichment emphasizes extracellular matrix organization, adhesion, and developmental programs, while genes such as MYC and JMJD1C show different expression responses across the models. These observations suggest a shared proliferation-related response alongside model-specific transcriptional changes.**
+
+**Together, the results support a role for HDAC7 in maintaining transcriptional programs associated with GSC proliferation and stemness. RNA-seq alone does not establish direct regulation or loss of self-renewal; those conclusions were validated alongside additional functional assays.**
+
+
+---
+
+### References:
+
+ *https://bioconductor.org/packages/release/workflows/vignettes/rnaseqGene/inst/doc/rnaseqGene.html*
+ *http://bioconnector.github.io/bims8382/r-rnaseq-airway.html*
+ *http://stemchecker.sysbiolab.eu/*
+
+ 
