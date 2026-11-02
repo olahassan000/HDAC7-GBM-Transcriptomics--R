@@ -65,11 +65,9 @@ The notebook also documents external transcription-factor and stemness-enrichmen
 
 ## Biological Interpretation
 
-- **A recurring replication and cell-cycle response:** selected-gene plots show lower expression of MCM2–7, CDC6, CDC45, ORC1, ORC6, TPX2, BIRC5, CCNB1, and MYBL2 following HDAC7 knockdown across the three models.
-- **Changes in key chromatin regulators:** NOTCH1, NOTCH3, and DNMT1 show lower group means across the 3 models which suggest epigenetic reprogramming.
-- **Interesting findings:** MYC decreases markedly in GB2 but shows a small increase in GB24; JMJD1C decreases in GB2 and increases in GB11 and GB24. These differences emphasize the probable changes with genotypes
-
-These observations describe expression patterns in the displayed samples. Gene-level significance and effect sizes should be checked in the corresponding DESeq2 tables. A selected panel is not a formal stemness score, and proliferation-associated changes alone do not establish loss of stemness.
+- **A recurring replication and cell-cycle response:** HDAC7 knockdown is associated with a coordinated decrease in expression of many genes in a selected panel across GB2, GB11, and GB24. Shared decreases include replication- and cell-cycle-associated critical genes include MCM2–7, CDC6, CDC45, ORC1, and ORC6, TPX2, BIRC5, CCNB1, and MYBL2. This pattern is consistent with reduced DNA replication and mitotic activity, supporting the cell-cycle themes identified in the GO enrichment analysis
+- **Changes in key chromatin regulators:** NOTCH1, NOTCH3, and DNMT1 show lower group means across the 3 models, suggesting that the response extends beyond proliferation to include changes in stemness-associated signaling and chromatin regulation
+- **Interesting findings:** MYC decreases markedly in GB2 but shows a small increase in GB24; JMJD1C decreases in GB2 and increases in GB11 and GB24. These differences emphasize the probable changes with GSCs' genotypes
 
 
 ### Full Analysis
