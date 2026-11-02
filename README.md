@@ -2,6 +2,13 @@
 
 This repository presents the transcriptomic component of my doctoral research in cancer epigenetics at Brown University. Using R and Bioconductor, I examine how siRNA-mediated HDAC7 depletion changes gene expression in glioblastoma stem cells (GSCs), focusing on DNA replication, cell-cycle regulation, chromatin regulators, and stemness-associated programs.
 
+# Project Overview :
+
+Glioblastoma (GBM) is an aggressive brain tumor characterized by extensive cellular and epigenetic plasticity, with glioblastoma stem cells (GSCs) contributing to tumor maintenance and therapeutic resistance. While histone deacetylases (HDACs) are established therapeutic targets in cancer, the limited isoform specificity of many HDAC inhibitors can contribute to off-target effects and has motivated the development of more selective therapeutic strategies.
+
+My doctoral research identified HDAC7, a class IIa histone deacetylase, as a potential epigenetic vulnerability in GBM. HDAC7 was found to be highly expressed in GBM and multiple other malignancies, while its inhibition impaired the self-renewal and viability of patient-derived GSCs.
+
+This project investigates the transcriptional consequences of HDAC7 knockdown in patient-derived GSCs using RNA-seq and differential gene expression analysis. The broader research program combined transcriptomics, epigenomics, protein-interaction studies, functional assays, and therapeutic development to characterize the molecular role of HDAC7 and evaluate its potential as a selective therapeutic target in cancer.
 
 ## Biological question
 Which transcriptional responses to HDAC7 knockdown are shared across patient-derived GSC models, and which depend on the individual model?
@@ -10,7 +17,7 @@ The working hypothesis is that HDAC7 supports transcriptional programs associate
 
 This analysis forms part of a broader research program integrating transcriptomics with chromatin profiling, protein-interaction studies, and functional assays to investigate HDAC7 as a potential therapeutic target.
 
-# Methods:
+## Methods:
 - R (Markdown)
 - DESeq2
 - Bioconductor
@@ -22,23 +29,6 @@ This analysis forms part of a broader research program integrating transcriptomi
 - Gene Ontology enrichment
 - GSEA
 
-
-# Project Overview :
-
-Glioblastoma (GBM) is an aggressive brain tumor characterized by extensive cellular and epigenetic plasticity, with glioblastoma stem cells (GSCs) contributing to tumor maintenance and therapeutic resistance. While histone deacetylases (HDACs) are established therapeutic targets in cancer, the limited isoform specificity of many HDAC inhibitors can contribute to off-target effects and has motivated the development of more selective therapeutic strategies.
-
-My doctoral research identified HDAC7, a class IIa histone deacetylase, as a potential epigenetic vulnerability in GBM. HDAC7 was found to be highly expressed in GBM and multiple other malignancies, while its inhibition impaired the self-renewal and viability of patient-derived GSCs.
-
-This project investigates the transcriptional consequences of HDAC7 knockdown in patient-derived GSCs using RNA-seq and differential gene expression analysis. The broader research program combined transcriptomics, epigenomics, protein-interaction studies, functional assays, and therapeutic development to characterize the molecular role of HDAC7 and evaluate its potential as a selective therapeutic target in cancer.
-
-
-# Research Question :
-
-How does HDAC7 inhibition alter transcriptional programs in patient-derived glioblastoma stem cells, and what do these changes reveal about its role in cancer stemness and tumor-associated pathways?
-
-# Hypothesis :
-
-HDAC7 functions as an important epigenetic regulator of glioblastoma stem-cell state, and its inhibition will disrupt transcriptional programs associated with cancer stemness and tumor progression.
 
 # Experimental Design :
 
