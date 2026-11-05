@@ -40,10 +40,10 @@ RNA-seq was performed on patient-derived GSCs following HDAC7 siRNA knockdown
 | Models | GB2, GB11, and GB24, derived from three different patients |
 | Perturbation | siRNA-mediated HDAC7 knockdown |
 | Comparison | HDAC7 knockdown (`Kd`) versus control (`Ctrl`) |
-| Samples | Two samples per condition per model; 12 samples in total |
+| Samples | Two samples per condition per model; 8 samples in total |
 | Assay | Bulk RNA-seq |
 | Statistical approach | Separate DESeq2 analyses within each model |
-| Primary significance threshold | Adjusted P-value < 0.05; additional thresholds explored |
+| Primary significance threshold | Adjusted P-value < 0.05; additional thresholds explored including 0.01, 0.001|
 
 
 ## Analysis Strategy :
@@ -65,9 +65,8 @@ The notebook also documents external transcription-factor and stemness-enrichmen
 
 ## Biological Interpretation
 
-- **A recurring replication and cell-cycle response:** HDAC7 knockdown is associated with a coordinated decrease in expression of many genes in a selected panel across GB2, GB11, and GB24. Shared decreases include replication- and cell-cycle-associated critical genes include MCM2–7, CDC6, CDC45, ORC1, and ORC6, TPX2, BIRC5, CCNB1, and MYBL2. This pattern is consistent with reduced DNA replication and mitotic activity, supporting the cell-cycle themes identified in the GO enrichment analysis
-- **Changes in key chromatin regulators:** NOTCH1, NOTCH3, and DNMT1 show lower group means across the 3 models, suggesting that the response extends beyond proliferation to include changes in stemness-associated signaling and chromatin regulation
-- **Interesting findings:** MYC decreases markedly in GB2 but shows a small increase in GB24; JMJD1C decreases in GB2 and increases in GB11 and GB24. These differences emphasize the probable changes with GSCs' genotypes
+- **DNA replication and cell-cycle response:** HDAC7 knockdown is associated with a coordinated decrease in expression of many genes in a selected panel across GB2, GB11, and GB24. Shared decreases include replication- and cell-cycle-associated critical genes include major regulators of DNA replication (mcm3, mcm4, mcm5, mcm7, and orc1),  G1–S phase transition of the cell cycle (MYC, E2F1, and CDC6). This pattern is consistent with reduced DNA replication and mitotic activity, supporting the cell-cycle themes identified in the GO enrichment analysis
+- **Changes in key chromatin regulators and cancer stemness phenotype:** NOTCH1, NOTCH3, and DNMT1 show lower group means across the 3 models,  JMJD1C and MYC   decrease markedly in GB2 , suggesting that the response extends beyond proliferation to include changes in stemness-associated signaling and chromatin regulation
 
 
 ### Full Analysis
