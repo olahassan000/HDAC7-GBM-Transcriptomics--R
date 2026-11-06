@@ -1,4 +1,4 @@
-# HDAC7-GBM Transcriptomics-Glioblastoma-stem-cells-on-HDAC7-knockdown-vs-CTRL-using-R
+# HDAC7-GBM Transcriptomics for Glioblastoma stem cells on HDAC7-knockdown vs CTRL using R
 
 This repository presents the transcriptomic component of my doctoral research in cancer epigenetics at Brown University. Using R and Bioconductor, I examine how siRNA-mediated HDAC7 depletion changes gene expression in glioblastoma stem cells (GSCs), focusing on DNA replication, cell-cycle regulation, chromatin regulators, and stemness-associated programs.
 
